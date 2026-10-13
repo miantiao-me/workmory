@@ -1,0 +1,44 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "workmory-local",
+  "main": ".output/server/index.mjs",
+  "compatibility_date": "2026-08-19",
+  "compatibility_flags": ["global_fetch_strictly_public"],
+  "keep_vars": true,
+  "assets": {
+    "directory": ".output/public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/mcp", "/health", "/info", "/v1/*"]
+  },
+  "observability": {
+    "logs": {
+      "enabled": true
+    },
+    "traces": {
+      "enabled": true
+    }
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "workmory-local",
+      "database_id": "c991fd36-068e-45e2-aa71-9b3b53e9f906",
+      "migrations_dir": "drizzle"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "BUCKET",
+      "bucket_name": "workmory-local"
+    }
+  ],
+  "vectorize": [
+    {
+      "binding": "VECTORIZE",
+      "index_name": "workmory-local"
+    }
+  ],
+  "ai": {
+    "binding": "AI"
+  }
+}

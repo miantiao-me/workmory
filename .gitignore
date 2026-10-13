@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Environment (local-only, never committed)
+.env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
+
+# Build output
+.output/
+.nitro/
+.wrangler/
+dist/
+
+# Cache & temp
+.cache/
+*.tsbuildinfo
+*.log
+coverage/
+
+# IDE
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.history/
+
+# Clone dependencies (read-only reference)
+.slim/clonedeps/repos/
+
+# Generated types (regenerate with `pnpm wrangler:types`)
+worker-configuration.d.ts

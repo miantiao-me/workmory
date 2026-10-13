@@ -1,0 +1,83 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1787038029690,
+      "tag": "0000_smart_hercules",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1787038632385,
+      "tag": "0001_tan_malice",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1787039180946,
+      "tag": "0002_tranquil_starhawk",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1787044798716,
+      "tag": "0003_oracle_hardening",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1787045923907,
+      "tag": "0004_claim_leases",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1787050437159,
+      "tag": "0005_operation_receipt_fence",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1787109507968,
+      "tag": "0006_internal_memory_indexability",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1787198139973,
+      "tag": "0007_tranquil_tomorrow_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1787818141907,
+      "tag": "0008_amusing_mastermind",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1788183610049,
+      "tag": "0009_eager_mac_gargan",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1788429414190,
+      "tag": "0010_crazy_ted_forrester",
+      "breakpoints": true
+    }
+  ]
+}

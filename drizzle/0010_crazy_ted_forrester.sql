@@ -1,0 +1,1 @@
+CREATE INDEX `memory_revision_attachments_attachment_idx` ON `memory_revision_attachments` (`attachment_id`);

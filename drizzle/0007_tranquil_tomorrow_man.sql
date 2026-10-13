@@ -1,0 +1,2 @@
+CREATE INDEX `index_outbox_status_next_attempt_idx` ON `index_outbox` (`status`,`next_attempt_at`);--> statement-breakpoint
+CREATE INDEX `memories_list_idx` ON `memories` (`project_id`,`namespace`,`indexable`,`deleted`,`updated_at`,`id`);

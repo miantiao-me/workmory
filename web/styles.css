@@ -1,0 +1,38 @@
+@import "./coss-globals.css";
+
+:root {
+  color-scheme: light;
+  --font-ui: "Aptos", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+  --font-code: "SFMono-Regular", "Cascadia Code", "Liberation Mono", monospace;
+}
+
+html {
+  background: var(--background);
+  font-family: var(--font-ui);
+}
+
+body {
+  position: relative;
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+#root {
+  isolation: isolate;
+  min-height: 100vh;
+}
+
+button,
+a,
+input,
+textarea,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dark {
+  color-scheme: dark;
+}
