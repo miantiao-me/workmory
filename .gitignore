@@ -28,8 +28,8 @@ coverage/
 !.vscode/extensions.json
 .history/
 
-# Clone dependencies (read-only reference)
-.slim/clonedeps/repos/
+# Clone dependencies and tool-generated local state
+.slim/
 
 # Generated types (regenerate with `pnpm wrangler:types`)
 worker-configuration.d.ts
