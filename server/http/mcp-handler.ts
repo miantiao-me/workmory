@@ -1,4 +1,5 @@
 import { createMcpHandler } from "@modelcontextprotocol/server";
+import { AuthenticationError } from "../auth/types";
 import { createWorkmoryMcpServer } from "../mcp/server";
 import { authenticatedServices } from "./authenticated";
 import { HttpError } from "./errors";
@@ -25,9 +26,24 @@ async function readMcpBody(request: Request): Promise<unknown> {
 
 export async function handleMcpRequest(request: Request, runtime: HandlerRuntime): Promise<Response> {
   return handleRequest("/mcp", async () => {
-    if (request.method === "OPTIONS") return preflightResponse("POST, OPTIONS");
+    const pathname = new URL(request.url).pathname;
+    const match = /^\/mcp(?:\/([^/]+))?\/?$/.exec(pathname);
+    if (!match) throw new HttpError(404, "NOT_FOUND", "Route was not found");
+    if (request.method === "OPTIONS") {
+      const response = preflightResponse("POST, OPTIONS");
+      response.headers.set("Allow", "POST, OPTIONS");
+      return response;
+    }
     if (request.method !== "POST") return new Response(null, { status: 405, headers: { Allow: "POST, OPTIONS" } });
-    const authenticated = await authenticatedServices(request, runtime);
+    let pathApiKey: string | undefined;
+    if (match[1] !== undefined) {
+      try {
+        pathApiKey = decodeURIComponent(match[1]);
+      } catch {
+        throw new AuthenticationError(401, "AUTH_INVALID", "Authentication failed");
+      }
+    }
+    const authenticated = await authenticatedServices(request, runtime, pathApiKey);
     const parsedBody = await readMcpBody(request);
     const handler = createMcpHandler(() => createWorkmoryMcpServer({
       memory: authenticated.services.memory,

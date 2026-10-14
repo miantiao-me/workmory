@@ -39,6 +39,8 @@ Workmory 的 MCP 服务端点为 `POST /mcp`（基于 Streamable HTTP，首选 M
 - **Cloudflare Access JWT**：通过 `Authorization: Bearer <jwt>` 或 `Cf-Access-Jwt-Assertion: <jwt>` 传递。每个 Access 用户主体拥有相互隔离的独立数据空间。
 - **Root API Key**：通过 `X-API-Key: <key>` 传递。对应独立的 `root` 数据域，适用于自动化运维或系统级调用。
 
+不支持自定义请求头的 MCP 客户端可使用 `https://memory.example.com/mcp/<url-encoded-root-key>`。请使用 `encodeURIComponent` 编码实际的 `ROOT_API_KEY`，此 URL 无需额外认证请求头。路径密钥不可与其他凭据来源混用。
+
 ## 工具一览
 
 Workmory 提供 14 个标准的 MCP 工具。记忆工具使用 `project` 作为工作区隔离边界，`namespace` 默认为 `default`；用户画像工具针对全局或指定项目偏好。

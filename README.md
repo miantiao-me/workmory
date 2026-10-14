@@ -39,6 +39,8 @@ Protected requests accept one credential source per request:
 - **Cloudflare Access JWT**: Pass via `Authorization: Bearer <jwt>` or `Cf-Access-Jwt-Assertion: <jwt>`. Each Access subject gets an isolated owner domain.
 - **Root API Key**: Pass via `X-API-Key: <key>`. Maps to a separate `root` domain, ideal for automated pipelines and maintenance tasks.
 
+For MCP clients without custom headers, use `https://memory.example.com/mcp/<url-encoded-root-key>`. Encode the actual `ROOT_API_KEY` with `encodeURIComponent`; this URL requires no additional authentication headers. Do not combine the path key with another credential source.
+
 ## Tools
 
 Workmory provides 14 standard MCP tools. Memory tools use `project` as the workspace boundary (`namespace` defaults to `default`), while profile tools manage global and project-specific preferences.

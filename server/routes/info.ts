@@ -21,6 +21,7 @@ export default defineHandler((event) => observeRequest("/info", () => {
       },
       rootKey: {
         header: "X-API-Key: <root key>",
+        path: "/mcp/<root key>",
       },
     },
     usage: "Use stateless POST /mcp. Prefer MCP 2026-07-28; MCP 2025-11-25 is available only as a stateless POST fallback. Workmory verifies Access JWTs but does not issue OAuth or Access tokens. Sessions, SSE GET/DELETE, and resume are not supported.",

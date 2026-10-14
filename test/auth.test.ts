@@ -96,6 +96,37 @@ describe("request authentication", () => {
     await expect(authenticateRequest(request({ "X-API-Key": "wrong" }), rootOnlyEnv, unusedVerifier)).rejects.not.toThrow(rootKey);
   });
 
+  it("authenticates path keys as the same root actor without using Access", async () => {
+    const unusedVerifier: AccessTokenVerifier = { verify: vi.fn(async () => { throw new Error("must not run"); }) };
+    const actor = await authenticateRequest(request({}), rootOnlyEnv, unusedVerifier, rootKey);
+    expect(actor).toEqual(await authenticateRequest(request({ "X-API-Key": rootKey }), rootOnlyEnv, unusedVerifier));
+    for (const key of ["wrong", ""]) {
+      await expect(authenticateRequest(request({}), rootOnlyEnv, unusedVerifier, key)).rejects.toMatchObject({ status: 401, code: "AUTH_INVALID" });
+    }
+    await expect(authenticateRequest(request({}), { ROOT_API_KEY: "short" }, unusedVerifier, "short"))
+      .rejects.toMatchObject({ status: 503, code: "AUTH_CONFIG_INVALID" });
+    expect(unusedVerifier.verify).not.toHaveBeenCalled();
+  });
+
+  it("counts every credential source, including empty headers, and rejects unsupported headers before root authentication", async () => {
+    for (const name of ["X-API-Key", "Authorization", "Cf-Access-Jwt-Assertion"]) {
+      for (const value of [rootKey, ""]) {
+        await expect(authenticateRequest(request({ [name]: value }), env, verifier, rootKey))
+          .rejects.toMatchObject({ status: 400, code: "AUTH_AMBIGUOUS" });
+      }
+    }
+    for (const name of ["Cookie", "Cf-Access-Client-Id", "Cf-Access-Client-Secret"]) {
+      for (const pathKey of [undefined, rootKey]) {
+        await expect(authenticateRequest(request({ [name]: "", ...(pathKey === undefined ? { "X-API-Key": rootKey } : {}) }), env, verifier, pathKey))
+          .rejects.toMatchObject({ status: 400, code: "AUTH_UNSUPPORTED" });
+      }
+    }
+    await expect(authenticateRequest(request({ "X-API-Key": "", Authorization: "" }), env, verifier))
+      .rejects.toMatchObject({ status: 400, code: "AUTH_AMBIGUOUS" });
+    await expect(authenticateRequest(request({ Authorization: "", "Cf-Access-Jwt-Assertion": "" }), env, verifier))
+      .rejects.toMatchObject({ status: 400, code: "AUTH_AMBIGUOUS" });
+  });
+
   it("fails closed for Access credentials when Access is not configured", async () => {
     const unusedVerifier: AccessTokenVerifier = { verify: vi.fn(async () => { throw new Error("must not run"); }) };
     const credentials: HeadersInit[] = [

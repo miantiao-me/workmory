@@ -39,7 +39,97 @@ async function legacyResponseJson(response: Response): Promise<unknown> {
   return JSON.parse(data ?? text);
 }
 
+async function pathRequest(source: Request, path: string): Promise<Request> {
+  source.headers.delete("x-api-key");
+  return new Request(`https://api.example.com${path}`, {
+    method: source.method,
+    headers: source.headers,
+    body: await source.text(),
+  });
+}
+
+const pathRootKey = "root-secret-value-that-is-at-least-32-bytes";
+
 describe("modern per-request MCP HTTP", () => {
+  it("supports path authentication for modern and legacy independent POSTs", async () => {
+    for (const suffix of ["", "/"]) {
+      const listed = await handleMcpRequest(await pathRequest(modernMcpRequest(21, "tools/list"), `/mcp/${pathRootKey}${suffix}`), runtime());
+      expect(listed.status).toBe(200);
+      expectReadOnlyAnnotations((await listed.json() as { result: { tools: ListedTool[] } }).result.tools);
+      expect(listed.headers.has("mcp-session-id")).toBe(false);
+    }
+    const initialized = await handleMcpRequest(await pathRequest(legacyMcpRequest(22, "initialize", {
+      protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "path-test", version: "1" },
+    }), `/mcp/${pathRootKey}`), runtime());
+    expect(initialized.status).toBe(200);
+    expect((await legacyResponseJson(initialized) as { result: { protocolVersion: string } }).result.protocolVersion).toBe("2025-11-25");
+    expect(initialized.headers.has("mcp-session-id")).toBe(false);
+  });
+
+  it("decodes path keys exactly once and preserves root ownership without leaking keys", async () => {
+    const key = "path-test-root-key-with-32-bytes/+%2F";
+    const handlerRuntime = runtime(undefined, { rootOnly: true });
+    handlerRuntime.env = { ...handlerRuntime.env, ROOT_API_KEY: key };
+    const createServices = handlerRuntime.createServices!;
+    let actor: ActorContext | undefined;
+    handlerRuntime.createServices = (value) => { actor = value; return createServices(value); };
+    const log = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    try {
+      const response = await handleMcpRequest(await pathRequest(modernMcpRequest(23, "tools/list"), `/mcp/${encodeURIComponent(key)}`), handlerRuntime);
+      expect(response.status).toBe(200);
+      expect(actor).toMatchObject({ ownerId: "root", authKind: "root" });
+      expect(log).toHaveBeenCalledWith(expect.objectContaining({ route: "/mcp", status: 200 }));
+      expect(JSON.stringify(log.mock.calls)).not.toContain(key);
+      expect(JSON.stringify(log.mock.calls)).not.toContain(encodeURIComponent(key));
+      expect(await response.text()).not.toContain(key);
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it("validates path shape before methods and decodes only POST paths", async () => {
+    for (const path of ["/mcp//", "/mcp/a/b", "/mcp/a//", "/mcp///"]) {
+      for (const method of ["POST", "OPTIONS", "GET", "DELETE"]) {
+        const response = await handleMcpRequest(new Request(`https://api.example.com${path}`, { method }), runtime());
+        expect(response.status).toBe(404);
+        expect(await response.json()).toMatchObject({ error: { code: "NOT_FOUND" } });
+      }
+    }
+    for (const path of ["/mcp", "/mcp/", `/mcp/${pathRootKey}`, `/mcp/${pathRootKey}/`, "/mcp/%ZZ"]) {
+      for (const method of ["OPTIONS", "GET", "DELETE"]) {
+        const response = await handleMcpRequest(new Request(`https://api.example.com${path}`, { method }), runtime());
+        expect(response.status).toBe(method === "OPTIONS" ? 204 : 405);
+        expect(response.headers.get("allow")).toBe("POST, OPTIONS");
+      }
+    }
+  });
+
+  it("rejects invalid path credentials, mixed sources, and query-only credentials", async () => {
+    const log = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    try {
+      for (const path of ["/mcp/wrong", "/mcp/%ZZ", "/mcp/%", "/mcp/%C0%AF"]) {
+        const response = await handleMcpRequest(await pathRequest(modernMcpRequest(24, "tools/list"), path), runtime());
+        expect(response.status).toBe(401);
+        expect(await response.json()).toEqual({ error: { code: "AUTH_INVALID", message: "Authentication failed" } });
+        expect(log).toHaveBeenLastCalledWith(expect.objectContaining({ route: "/mcp", status: 401, error_code: "AUTH_INVALID" }));
+        expect(JSON.stringify(log.mock.calls)).not.toContain(path);
+      }
+    } finally {
+      log.mockRestore();
+    }
+    for (const name of ["X-API-Key", "Authorization", "Cf-Access-Jwt-Assertion", "Cookie", "Cf-Access-Client-Id", "Cf-Access-Client-Secret"]) {
+      const request = await pathRequest(modernMcpRequest(25, "tools/list"), `/mcp/${pathRootKey}`);
+      request.headers.set(name, "");
+      const response = await handleMcpRequest(request, runtime());
+      expect(response.status).toBe(400);
+      expect(await response.json()).toMatchObject({ error: { code: ["Cookie", "Cf-Access-Client-Id", "Cf-Access-Client-Secret"].includes(name) ? "AUTH_UNSUPPORTED" : "AUTH_AMBIGUOUS" } });
+    }
+    const query = await handleMcpRequest(await pathRequest(modernMcpRequest(26, "tools/list"), `/mcp/?api-key=${pathRootKey}`), runtime());
+    expect(query.status).toBe(401);
+    expect(await query.json()).toMatchObject({ error: { code: "AUTH_REQUIRED" } });
+    const trailing = new Request("https://api.example.com/mcp/", modernMcpRequest(27, "tools/list"));
+    expect((await handleMcpRequest(trailing, runtime())).status).toBe(200);
+  });
   it("handles discover, tools/list, and tools/call on independent POST requests", async () => {
     const initialized = await handleMcpRequest(modernMcpRequest(1, "server/discover"), runtime());
     expect(initialized.status).toBe(200);

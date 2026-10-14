@@ -8,14 +8,15 @@
   "assets": {
     "directory": ".output/public",
     "binding": "ASSETS",
-    "run_worker_first": ["/mcp", "/health", "/info", "/v1/*"]
+    "run_worker_first": ["/mcp", "/mcp/*", "/.well-known/*", "/health", "/info", "/v1/*"]
   },
   "observability": {
     "logs": {
-      "enabled": true
+      "enabled": true,
+      "invocation_logs": false
     },
     "traces": {
-      "enabled": true
+      "enabled": false
     }
   },
   "d1_databases": [
