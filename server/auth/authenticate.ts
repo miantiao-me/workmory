@@ -14,22 +14,22 @@ export async function authenticateRequest(
   env: AuthEnvironment,
   verifier?: AccessTokenVerifier,
 ): Promise<ActorContext> {
-  if (request.headers.has("cf-access-client-id") || request.headers.has("cf-access-client-secret") || request.headers.has("cookie")) {
-    throw new AuthenticationError(400, "AUTH_UNSUPPORTED", "Unsupported authentication credential");
-  }
-  const authorization = request.headers.get("authorization");
-  const assertion = request.headers.get("cf-access-jwt-assertion");
   const rootKey = request.headers.get("x-api-key");
-  const present = [authorization, assertion, rootKey].filter((value) => value !== null).length;
-  if (present > 1) throw new AuthenticationError(400, "AUTH_AMBIGUOUS", "Multiple authentication credentials were provided");
-  if (present === 0) throw new AuthenticationError(401, "AUTH_REQUIRED", "Authentication is required");
-
   if (rootKey !== null) {
     if (utf8Length(env.ROOT_API_KEY) < 32) throw new AuthenticationError(503, "AUTH_CONFIG_INVALID", "Authentication is unavailable");
     if (!(await constantTimeDigestEqual(rootKey, env.ROOT_API_KEY))) throw new AuthenticationError(401, "AUTH_INVALID", "Authentication failed");
     const fingerprint = (await sha256Hex(env.ROOT_API_KEY)).slice(0, 16);
     return { ownerId: "root", actorId: `root:${fingerprint}`, authKind: "root" };
   }
+
+  if (request.headers.has("cf-access-client-id") || request.headers.has("cf-access-client-secret") || request.headers.has("cookie")) {
+    throw new AuthenticationError(400, "AUTH_UNSUPPORTED", "Unsupported authentication credential");
+  }
+  const authorization = request.headers.get("authorization");
+  const assertion = request.headers.get("cf-access-jwt-assertion");
+  const present = [authorization, assertion].filter((value) => value !== null).length;
+  if (present > 1) throw new AuthenticationError(400, "AUTH_AMBIGUOUS", "Multiple authentication credentials were provided");
+  if (present === 0) throw new AuthenticationError(401, "AUTH_REQUIRED", "Authentication is required");
 
   const token = assertion ?? (/^Bearer\s+(.+)$/i.exec(authorization ?? "")?.[1] || undefined);
   if (!token) throw new AuthenticationError(401, "AUTH_INVALID", "Authentication failed");
