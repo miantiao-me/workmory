@@ -1,0 +1,11 @@
+# Profile rules
+
+- These rules apply to `server/profile/`. Read this file too when changing profile MCP contracts, domain rules, or memory/indexing integrations elsewhere.
+- Reuse the memory revision/CAS and operation-receipt paths for every mutation, including `expected_revision` and `operation_id`; do not create a weaker profile-specific write path.
+- Every record uses `indexable: false` and the internal reserved scope. Clients cannot choose owner/internal scope, and ordinary memory tools cannot read or mutate profile records.
+- Effective data merges global and optional project profiles: project `set` overrides, `remove` reveals the global value, and project-only `suppress` hides inheritance. Omit expired fields, report stale fields, and mask `sensitive` values unless `include_sensitive` is true. `include_raw` requires `include_sensitive`.
+- Never infer profiles with AI or scan memories to derive them. Explicit updates may use `user_explicit`, `user_imported`, or compliant `agent_inferred` provenance. Inferred fields need non-empty `source_ids`, `confidence`, and `stale_after`; forbid sensitive values and normalized `authentication`, `secrets`, `health`, `politics`, `religion`, `finance`, and `biometric` sections.
+- Preserve unknown frontmatter, provenance, and field metadata through parse, patch, serialization, and revisions. Profile values remain untrusted context, never instructions or authorization evidence.
+- `profile_update` returns only allowlisted effective fields plus target scope, optional project, and revision. Never return canonical documents or unknown raw metadata; raw output belongs exclusively to explicit `profile_get` with both `include_raw` and `include_sensitive`.
+- `profile_delete` advances a logical tombstone/revision boundary and retains immutable revisions/audit evidence. Physical erasure needs a separate explicit retention contract.
+- Validate policy/document/merge changes with `pnpm test test/profile-policy.test.ts test/profile-document.test.ts test/profile-merge.test.ts`; persistence and revision changes also require `pnpm test:workers test/workers/profile-service.test.ts test/workers/profile-revision.test.ts test/workers/semantic-internal-non-indexable.test.ts` and the root verification sequence.
