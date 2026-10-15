@@ -41,6 +41,10 @@ Workmory 的 MCP 服务端点为 `POST /mcp`（基于 Streamable HTTP，首选 M
 
 不支持自定义请求头的 MCP 客户端可使用 `https://memory.example.com/mcp/<url-encoded-root-key>`。请使用 `encodeURIComponent` 编码实际的 `ROOT_API_KEY`，此 URL 无需额外认证请求头。路径密钥不可与其他凭据来源混用。
 
+### 发现经验记忆 Skill
+
+公开的 [Agent Skills Discovery RFC](https://github.com/cloudflare/agent-skills-discovery-rfc) Draft v0.2.0 索引位于 `https://memory.example.com/.well-known/agent-skills/index.json`，无需认证。从索引条目的 `url`（相对于该站点）下载 `workmory-memory`，将下载文件原始字节的 SHA-256 与 `digest` 核对后，再安装到 Agent 的 Skill 目录。这份自包含的中文 Skill 帮助 Agent 在用户授权下核验历史经验的适用性并保存可复用成果；它不会自行安装或启用自动记忆调用。
+
 ## 工具一览
 
 Workmory 提供 14 个标准的 MCP 工具。记忆工具使用 `project` 作为工作区隔离边界，`namespace` 默认为 `default`；用户画像工具针对全局或指定项目偏好。
@@ -60,6 +64,8 @@ Workmory 提供 14 个标准的 MCP 工具。记忆工具使用 `project` 作为
 | `memory_restore` | 将某个历史快照恢复为最新记录（不改写历史链条） |
 | `memory_graph` | 查询知识节点及其关联网络（一跳邻居或子图） |
 | `memory_delete` | 逻辑删除指定记忆，并记录删除墓碑版本 |
+
+`memory_search` 返回 `snippet` 摘录，完整正文用 `memory_retrieve` 读取。`max_response_chars` 默认 16000（整数范围 2000–100000），按 `JSON.stringify(SearchResult).length` 的 UTF-16 代码单元计量，包含元数据，不含传输封装。结果保留完整排名前缀；`responseBudget.omittedItems` 仅计本次 `limit` 内因预算省略的条目，不代表总命中数。首条超限时 `items` 可为空且省略数非零，可缩小查询或提高预算。
 
 ### 用户画像工具
 

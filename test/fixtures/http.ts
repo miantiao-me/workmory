@@ -27,7 +27,7 @@ export function fakeMemoryService(): MemoryService {
     })),
     restore: vi.fn(async (request) => ({ ...request, revision: 2, tags: [] })),
     list: vi.fn(async () => ({ items: [] })),
-    search: vi.fn(async () => ({ items: [], degraded: false, effectiveSemanticWeight: 0 })),
+    search: vi.fn(async () => ({ items: [], responseBudget: { maxChars: 16_000, omittedItems: 0 }, degraded: false, effectiveSemanticWeight: 0 })),
     graph: vi.fn(async (request) => ({
       mode: request.mode,
       nodes: [],

@@ -41,6 +41,10 @@ Protected requests accept one credential source per request:
 
 For MCP clients without custom headers, use `https://memory.example.com/mcp/<url-encoded-root-key>`. Encode the actual `ROOT_API_KEY` with `encodeURIComponent`; this URL requires no additional authentication headers. Do not combine the path key with another credential source.
 
+### Discover the memory skill
+
+The public [Agent Skills Discovery RFC](https://github.com/cloudflare/agent-skills-discovery-rfc) Draft v0.2.0 index is available at `https://memory.example.com/.well-known/agent-skills/index.json` without authentication. Download `workmory-memory` from the entry’s `url` (relative to that origin), then compare the SHA-256 of the downloaded raw bytes with its `digest` before installing it in your agent’s skill directory. The self-contained Chinese skill explains how to check whether past experience applies and save reusable outcomes with user authorization. It does not install itself or enable automatic memory calls.
+
 ## Tools
 
 Workmory provides 14 standard MCP tools. Memory tools use `project` as the workspace boundary (`namespace` defaults to `default`), while profile tools manage global and project-specific preferences.
@@ -60,6 +64,8 @@ Workmory provides 14 standard MCP tools. Memory tools use `project` as the works
 | `memory_restore` | Restore a historical snapshot as the current active revision |
 | `memory_graph` | Explore relationships and one-hop connections between memory nodes |
 | `memory_delete` | Logically delete a memory while preserving its immutable revision audit trail |
+
+`memory_search` returns `snippet` excerpts; use `memory_retrieve` for full content. `max_response_chars` defaults to 16000 (integer range 2000–100000), measuring `JSON.stringify(SearchResult).length` in UTF-16 code units, including metadata and excluding transport envelopes. Results retain a complete ranked prefix; `responseBudget.omittedItems` counts budget omissions within the requested `limit`, not total matches. An oversized first result can leave `items` empty with omissions; narrow the query or raise the budget.
 
 ### User profile tools
 

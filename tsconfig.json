@@ -9,6 +9,7 @@
     },
     "strict": true,
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "skipLibCheck": true,
     "types": ["./worker-configuration.d.ts", "nitro/types", "@cloudflare/vitest-plugin/types", "node"]
   },
@@ -19,6 +20,7 @@
     "web/**/*.tsx",
     "drizzle.config.ts",
     "server/**/*.ts",
+    "scripts/**/*.ts",
     "test/**/*.ts",
     "vitest.config.ts",
     "vitest.workers.config.ts"

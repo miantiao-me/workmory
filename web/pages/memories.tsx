@@ -44,7 +44,7 @@ export function MemoriesPage() {
     query, setQuery, isSearching,
     semanticWeight, setSemanticWeight,
     draftFilters, setDraftFilters, appliedFilters, appliedFilterTags, activeFilterCount,
-    degraded, cursorHistory, nextCursor, resetPage, previousPage, nextPage,
+    degraded, responseBudget, cursorHistory, nextCursor, resetPage, previousPage, nextPage,
   } = results;
   const {
     detail,
@@ -194,6 +194,7 @@ export function MemoriesPage() {
 
         <MemoryResults
           cursorHistory={cursorHistory}
+          hasError={Boolean(error)}
           isSearching={isSearching}
           loading={loading}
           nextCursor={nextCursor}
@@ -202,6 +203,7 @@ export function MemoriesPage() {
           onOpenNew={openNew}
           onPreviousPage={previousPage}
           rows={rows}
+          responseBudget={responseBudget}
         />
       </div>
 

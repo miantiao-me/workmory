@@ -23,7 +23,7 @@ describe("service info", () => {
     const info = await infoHandler({ req: new Request("https://example.com/info") } as never);
     expect(info).toMatchObject({
       name: "workmory",
-      endpoints: { mcp: "/mcp", health: "/health", info: "/info" },
+      endpoints: { mcp: "/mcp", health: "/health", info: "/info", agentSkills: "/.well-known/agent-skills/index.json" },
       authentication: { rootKey: { header: "X-API-Key: <root key>" } },
     });
   });

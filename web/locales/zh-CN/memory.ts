@@ -56,6 +56,12 @@ export const memory = {
       queryLength: "搜索词限 2,000 字符。",
       missing: "记忆不存在或已删除。",
     },
+    budget: {
+      omitted_one: "响应预算内无法容纳其余 {{count}} 条结果。",
+      omitted_other: "响应预算内无法容纳其余 {{count}} 条结果。",
+      title: "响应预算不足",
+      description: "排名首位的结果超出响应预算。请缩小搜索范围，或浏览记忆并打开原文。",
+    },
     degraded: {
       title: "语义搜索不可用",
       fallback: "已回退为关键词搜索。",

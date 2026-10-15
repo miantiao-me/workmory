@@ -72,6 +72,8 @@ export const listInputSchema = z.object({
 export const searchInputSchema = z.object({
   ...memoryScopeSchema,
   query: z.string().min(1).max(2_000),
+  max_response_chars: z.number().int().min(2_000).max(100_000).default(16_000)
+    .describe("Maximum JSON.stringify(SearchResult).length in UTF-16 code units, including metadata; excludes transport envelopes."),
   semantic_weight: z.number().min(0).max(1).default(0.5),
   limit: z.number().int().min(1).max(50).default(20),
   filters: z.object({

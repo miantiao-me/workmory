@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { parse } from "yaml";
 import { readFile } from "node:fs/promises";
 
 const ROOT_API_KEY = "artifact-test-root-key-with-32-bytes";
@@ -32,6 +34,70 @@ async function request(worker, path, init) {
   return worker.fetch(new Request(`https://artifact.test${path}`, init), env, context);
 }
 
+async function verifyAgentSkills(worker) {
+  const base = "/.well-known/agent-skills";
+  const skillPath = `${base}/workmory-memory/SKILL.md`;
+  const fetch = (path, method = "GET") => worker.fetch(
+    new Request(`https://artifact.test${path}`, { method, headers: { Origin: "https://client.example" } }), {}, context,
+  );
+  const assertCors = (response) => {
+    assert.equal(response.headers.get("Access-Control-Allow-Origin"), "*");
+    assert.equal(response.headers.has("Access-Control-Allow-Credentials"), false);
+  };
+  const source = await readFile(new URL("../server/assets/agent-skills/workmory-memory/SKILL.md", import.meta.url));
+  const metadata = parse(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(source.toString("utf8"))[1]);
+  const indexResponse = await fetch(`${base}/index.json`);
+  const skillResponse = await fetch(skillPath);
+  assert.equal(indexResponse.status, 200);
+  assert.equal(skillResponse.status, 200);
+  assert.match(indexResponse.headers.get("Content-Type"), /^application\/json(?:;|$)/i);
+  assert.match(skillResponse.headers.get("Content-Type"), /^text\/markdown(?:;|$)/i);
+  const bytes = Buffer.from(await skillResponse.arrayBuffer());
+  assert.deepEqual(bytes, source, "built skill must preserve the manually maintained source bytes");
+  assert.deepEqual(await indexResponse.json(), {
+    $schema: "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
+    skills: [{ name: metadata.name, type: "skill-md", description: metadata.description, url: skillPath,
+      digest: `sha256:${createHash("sha256").update(bytes).digest("hex")}` }],
+  });
+  for (const [path, get] of [[`${base}/index.json`, indexResponse], [skillPath, skillResponse]]) {
+    assertCors(get);
+    assert.equal(get.headers.get("Cache-Control"), "public, max-age=300");
+    const head = await fetch(path, "HEAD");
+    assert.equal(head.status, get.status);
+    assert.equal(head.headers.get("Content-Type"), get.headers.get("Content-Type"));
+    assert.equal(head.headers.get("Cache-Control"), get.headers.get("Cache-Control"));
+    assertCors(head);
+    assert.equal(await head.text(), "");
+    const post = await fetch(path, "POST");
+    assert.equal(post.status, 405);
+    assert.equal(post.headers.get("Allow"), "GET, HEAD, OPTIONS");
+    assertCors(post);
+    assert.deepEqual(await post.json(), { error: { code: "METHOD_NOT_ALLOWED", message: "Method is not allowed" } });
+    const options = await fetch(path, "OPTIONS");
+    assert.equal(options.status, 204);
+    assert.equal(options.headers.get("Allow"), "GET, HEAD, OPTIONS");
+    assert.equal(options.headers.get("Access-Control-Allow-Methods"), "GET, HEAD, OPTIONS");
+    assert.equal(options.headers.get("Access-Control-Allow-Headers"), "Content-Type");
+    assertCors(options);
+    assert.equal(await options.text(), "");
+  }
+  for (const path of [`${base}/private-probe/SKILL.md`, `${skillPath}/extra`, `${base}/index.json/`]) {
+    for (const method of ["GET", "HEAD"]) {
+      const response = await fetch(path, method);
+      assert.equal(response.status, 404);
+      assert.match(response.headers.get("Content-Type"), /^application\/json(?:;|$)/i);
+      assertCors(response);
+      const body = await response.text();
+      assert.equal(body.includes(path), false);
+      if (method === "HEAD") assert.equal(body, "");
+      else assert.deepEqual(JSON.parse(body), { error: { code: "NOT_FOUND", message: "Route was not found" } });
+    }
+  }
+  const info = await fetch("/info");
+  assert.equal(info.status, 200);
+  assert.equal((await info.json()).endpoints.agentSkills, `${base}/index.json`);
+}
+
 async function assertAuthError(response, expectedCode) {
   assert.equal(response.status, 401);
   const body = await response.json();
@@ -51,6 +117,7 @@ async function verify() {
   const worker = module.default;
   assert.equal(typeof worker?.fetch, "function", "built worker must export a default fetch handler");
 
+  await verifyAgentSkills(worker);
   assert.equal((await request(worker, "/health", { method: "GET" })).status, 200);
   for (const path of [
     "/.well-known/oauth-protected-resource",

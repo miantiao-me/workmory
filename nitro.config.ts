@@ -16,6 +16,9 @@ export default defineNitroConfig({
     },
   },
   serverDir: "server",
+  handlers: [
+    { route: "/.well-known/agent-skills/**", handler: "./server/http/agent-skills-handler" },
+  ],
   experimental: {
     tasks: true,
   },

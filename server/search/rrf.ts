@@ -1,8 +1,8 @@
-import type { MemoryRecord, SearchHit } from "../domain/memory";
+import type { MemorySearchRecord, SearchHit } from "../domain/memory";
 
 export interface RankedCandidate {
   id: string;
-  record: MemoryRecord;
+  record: MemorySearchRecord;
 }
 
 export interface RrfInput {

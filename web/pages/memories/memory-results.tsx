@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight, Database } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import type { SearchResult } from "../../../server/domain/memory";
 import { EmptyState } from "../../components/common";
 import { Button } from "../../components/ui/button";
 import { Card, CardFooter } from "../../components/ui/card";
@@ -44,9 +45,11 @@ function MemoryTableSkeleton() {
   );
 }
 
-export function MemoryResults({ rows, loading, isSearching, cursorHistory, nextCursor, onOpen, onOpenNew, onPreviousPage, onNextPage }: {
+export function MemoryResults({ rows, loading, hasError = false, isSearching, responseBudget, cursorHistory, nextCursor, onOpen, onOpenNew, onPreviousPage, onNextPage }: {
   rows: MemoryRow[];
+  responseBudget?: SearchResult["responseBudget"];
   loading: boolean;
+  hasError?: boolean;
   isSearching: boolean;
   cursorHistory: unknown[];
   nextCursor?: string;
@@ -56,9 +59,28 @@ export function MemoryResults({ rows, loading, isSearching, cursorHistory, nextC
   onNextPage: () => void;
 }) {
   const { t } = useTranslation();
+  const budgetExceeded = !hasError && isSearching && Boolean(responseBudget?.omittedItems);
+  const emptyTitle = budgetExceeded
+    ? t("memories.budget.title")
+    : t(isSearching ? "memories.empty.noResults" : "memories.empty.title");
+  const emptyDescription = budgetExceeded
+    ? t("memories.budget.description")
+    : t(isSearching ? "memories.empty.searchDescription" : "memories.empty.description");
+  const emptyAction = budgetExceeded ? undefined : <Button onClick={onOpenNew}>{t("memories.empty.first")}</Button>;
+
+  if (hasError && !rows.length) return null;
+
   return (
     <Card className="w-full min-w-0">
-      {loading ? <MemoryTableSkeleton /> : !rows.length ? <EmptyState action={<Button onClick={onOpenNew}>{t("memories.empty.first")}</Button>} description={isSearching ? t("memories.empty.searchDescription") : t("memories.empty.description")} icon={<Database aria-hidden="true" />} title={isSearching ? t("memories.empty.noResults") : t("memories.empty.title")} /> : (
+      {!loading && budgetExceeded && rows.length > 0 && <p className="px-6 pt-4 text-muted-foreground text-sm" role="status">{t("memories.budget.omitted", { count: responseBudget?.omittedItems ?? 0 })}</p>}
+      {loading ? <MemoryTableSkeleton /> : !rows.length ? (
+        <EmptyState
+          action={emptyAction}
+          description={emptyDescription}
+          icon={<Database aria-hidden="true" />}
+          title={emptyTitle}
+        />
+      ) : (
         <Table className={NUMERIC_COLUMNS} variant="card">
           <TableHeader>
             <TableRow>

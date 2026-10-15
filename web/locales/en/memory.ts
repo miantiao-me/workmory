@@ -56,6 +56,12 @@ export const memory = {
       queryLength: "Query max 2,000 characters.",
       missing: "Memory not found or deleted.",
     },
+    budget: {
+      omitted_one: "{{count}} result omitted to fit the response budget.",
+      omitted_other: "{{count}} results omitted to fit the response budget.",
+      title: "Response budget too small",
+      description: "The highest-ranked result exceeds the response budget. Narrow the search or browse memories to open it.",
+    },
     degraded: {
       title: "Semantic search unavailable",
       fallback: "Showing keyword results instead.",

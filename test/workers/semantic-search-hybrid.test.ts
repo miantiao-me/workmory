@@ -25,9 +25,9 @@ describe("semantic, hybrid, and qualification search", () => {
     const tag = await memory.search({ project: "workmory", namespace: "default", query: "exact-tag", semanticWeight: 0, limit: 20 });
     const semantic = await memory.search({ project: "workmory", namespace: "default", query: "no lexical occurrence", semanticWeight: 1, limit: 20 });
 
-    expect(exact.items[0].record.content).toBe(longBody.slice(0, 1_000));
-    expect(tag.items[0].record.content).toBe(longBody.slice(0, 1_000));
-    expect(semantic.items[0].record.content).toBe(longBody.slice(0, 1_000));
+    expect(exact.items[0].record.snippet).toBe(longBody.slice(0, 1_000));
+    expect(tag.items[0].record.snippet).toBe(longBody.slice(0, 1_000));
+    expect(semantic.items[0].record.snippet).toBe(longBody.slice(0, 1_000));
   });
 
   it("keeps the lexical snippet and unchanged RRF score for a hybrid duplicate", async () => {
@@ -46,7 +46,7 @@ describe("semantic, hybrid, and qualification search", () => {
 
     const result = await memory.search({ project: "workmory", namespace: "default", query, semanticWeight: 0.5, limit: 20 });
 
-    expect(result.items[0].record.content).toContain(query);
+    expect(result.items[0].record.snippet).toContain(query);
     expect(result.items[0].score).toBeCloseTo(1 / 61);
     expect(result.items[0].scoreBreakdown).toEqual({
       lexical: 0.5 / 61,

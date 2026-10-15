@@ -45,9 +45,9 @@ describe("lexical and FTS search", () => {
 
     expect(prefix.length).toBeGreaterThan(1_000);
     expect(prefix.length).toBeLessThan(16_384);
-    expect(result.items[0].record.content).toContain(query);
-    expect(result.items[0].record.content).not.toBe(`${prefix}${query} trailing text`.slice(0, 1_000));
-    expect(result.items[0].record.content).not.toMatch(/<\/?(?:b|mark)>|\*\*|\[fts-match-(?:start|end)\]/i);
+    expect(result.items[0].record.snippet).toContain(query);
+    expect(result.items[0].record.snippet).not.toBe(`${prefix}${query} trailing text`.slice(0, 1_000));
+    expect(result.items[0].record.snippet).not.toMatch(/<\/?(?:b|mark)>|\*\*|\[fts-match-(?:start|end)\]/i);
   });
 
   it("uses the fixed prefix when FTS matches only a key or tag", async () => {
@@ -64,8 +64,8 @@ describe("lexical and FTS search", () => {
     const keyResult = await memory.search({ project: "workmory", namespace: "default", query: "key-only-needle", semanticWeight: 0, limit: 20 });
     const tagResult = await memory.search({ project: "workmory", namespace: "default", query: "tag-only", semanticWeight: 0, limit: 20 });
 
-    expect(keyResult.items[0].record.content).toBe(`${prefix} without the lookup term`);
-    expect(tagResult.items[0].record.content).toBe(`${prefix} without the lookup term`);
+    expect(keyResult.items[0].record.snippet).toBe(`${prefix} without the lookup term`);
+    expect(tagResult.items[0].record.snippet).toBe(`${prefix} without the lookup term`);
   });
 
   it("supports content fallback queries longer than D1's LIKE pattern limit", async () => {
@@ -87,7 +87,7 @@ describe("lexical and FTS search", () => {
 
     expect(new TextEncoder().encode(query).byteLength).toBeGreaterThan(50);
     expect(candidates.map((candidate) => candidate.record.key)).toEqual(["search/long-fallback"]);
-    expect(candidates[0].record.content).toBe(`before ${query} after`);
+    expect(candidates[0].record.snippet).toBe(`before ${query} after`);
   });
 
   it("uses instr for queries shorter than three Unicode code points", async () => {

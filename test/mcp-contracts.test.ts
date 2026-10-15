@@ -25,8 +25,14 @@ describe("MCP contracts", () => {
 
   it("applies search defaults and upper bounds", () => {
     expect(searchInputSchema.parse({ project: "workmory", query: "architecture" })).toMatchObject({
-      namespace: "default", semantic_weight: 0.5, limit: 20,
+      namespace: "default", semantic_weight: 0.5, limit: 20, max_response_chars: 16_000,
     });
+    for (const max_response_chars of [1999, 100001, 2000.5, NaN, Infinity, -Infinity, "16000", null]) {
+      expect(searchInputSchema.safeParse({ project: "workmory", query: "x", max_response_chars }).success).toBe(false);
+    }
+    for (const max_response_chars of [2000, 100000]) {
+      expect(searchInputSchema.parse({ project: "workmory", query: "x", max_response_chars }).max_response_chars).toBe(max_response_chars);
+    }
     expect(searchInputSchema.safeParse({ project: "workmory", query: "x", limit: 51 }).success).toBe(false);
     expect(searchInputSchema.safeParse({ project: "workmory", query: "x", semantic_weight: 1.1 }).success).toBe(false);
   });

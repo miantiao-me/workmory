@@ -13,6 +13,7 @@ export default defineHandler((event) => observeRequest("/info", () => {
       mcp: "/mcp",
       health: "/health",
       info: "/info",
+      agentSkills: "/.well-known/agent-skills/index.json",
     },
     authentication: {
       requirement: "Use exactly one credential source.",

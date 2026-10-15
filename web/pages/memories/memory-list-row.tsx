@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { MemoryListItem, MemoryRecord } from "../../../server/domain/memory";
+import type { MemoryListItem } from "../../../server/domain/memory";
 import { StatusBadge } from "../../components/common";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
@@ -40,16 +40,12 @@ export function MemoryListRow({
   score,
   onOpen,
 }: {
-  record: MemoryListItem | MemoryRecord;
+  record: MemoryListItem;
   score?: number;
   onOpen: (key: string) => void;
 }) {
   const { t } = useTranslation();
-  const preview = "snippet" in record && record.snippet
-    ? record.snippet
-    : "content" in record && record.content
-      ? record.content
-      : t("memories.noPreview");
+  const preview = record.snippet || t("memories.noPreview");
 
   return (
     <TableRow>

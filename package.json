@@ -20,6 +20,8 @@
     "test:artifact": "node scripts/verify-built-worker.mjs",
     "test:staging-contract": "node scripts/verify-staging-contract.mjs",
     "test:workers": "vitest run --config vitest.workers.config.ts",
+    "eval:retrieval": "vitest run --config vitest.workers.config.ts test/workers/retrieval-evaluation.test.ts --reporter=verbose --silent=false",
+    "eval:retrieval:remote": "node --env-file=.env.local scripts/evaluate-remote-retrieval.ts",
     "wrangler:types": "wrangler types",
     "migration:generate": "drizzle-kit generate",
     "migration:check": "drizzle-kit check",

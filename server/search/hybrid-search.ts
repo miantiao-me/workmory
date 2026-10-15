@@ -1,4 +1,5 @@
 import type { SearchMemoryRequest, SearchResult } from "../domain/memory";
+import { finalizeSearchResult } from "./response-budget";
 import { vectorScopeId, type ActorContext } from "../domain/identity";
 import { queryLexicalCandidates } from "./lexical-candidates";
 import { candidateDepth, weightedRrf } from "./rrf";
@@ -12,6 +13,7 @@ export async function hybridSearch(
   runtime?: SemanticRuntime,
   now: () => number = Date.now,
 ): Promise<SearchResult> {
+  const finalize = (result: Omit<SearchResult, "responseBudget">) => finalizeSearchResult(result, request.maxResponseChars);
   const limit = Math.min(50, Math.max(1, Math.trunc(request.limit)));
   const semanticWeight = Math.min(1, Math.max(0, request.semanticWeight));
   const candidateK = candidateDepth(limit);
@@ -20,11 +22,11 @@ export async function hybridSearch(
 
   if (semanticWeight === 0) {
     const lexical = await lexicalPromise;
-    return {
+    return finalize({
       items: weightedRrf({ lexical: lexical.ranked, semantic: [], exactIds: lexical.exactIds, semanticWeight: 0, limit }),
       degraded: false,
       effectiveSemanticWeight: 0,
-    };
+    });
   }
   const coveragePromise = db.prepare(
     `SELECT COUNT(*) AS eligible,
@@ -43,14 +45,14 @@ export async function hybridSearch(
     });
   if (!runtime) {
     const [lexical, coverage] = await Promise.all([lexicalPromise, coveragePromise]);
-    return {
+    return finalize({
       items: weightedRrf({ lexical: lexical.ranked, semantic: [], exactIds: lexical.exactIds, semanticWeight: 0, limit }),
       degraded: true,
       effectiveSemanticWeight: 0,
       degradationReason: "Semantic runtime is not configured; lexical results returned",
       degradationCode: "semantic_runtime_unconfigured",
       semanticProjectionCoverage: coverage,
-    };
+    });
   }
 
   const semanticPromise = (async () => {
@@ -64,16 +66,16 @@ export async function hybridSearch(
   if (lexicalResult.status === "rejected") throw lexicalResult.reason;
   const coverage = coverageResult.status === "fulfilled" ? coverageResult.value : undefined;
   if (semanticResult.status === "rejected") {
-    return {
+    return finalize({
       items: weightedRrf({ lexical: lexicalResult.value.ranked, semantic: [], exactIds: lexicalResult.value.exactIds, semanticWeight: 0, limit }),
       degraded: true,
       effectiveSemanticWeight: 0,
       degradationReason: "Semantic search unavailable; lexical results returned",
       degradationCode: "semantic_unavailable",
       ...(coverage ? { semanticProjectionCoverage: coverage } : {}),
-    };
+    });
   }
-  return {
+  return finalize({
     items: weightedRrf({
       lexical: lexicalResult.value.ranked,
       semantic: semanticResult.value,
@@ -88,5 +90,5 @@ export async function hybridSearch(
       degradationCode: "projection_incomplete" as const,
       degradationReason: "Semantic projection is incomplete",
     } : {}),
-  };
+  });
 }

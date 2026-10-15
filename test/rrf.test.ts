@@ -1,14 +1,15 @@
 import { describe, expect, it } from "vitest";
-import type { MemoryRecord } from "../server/domain/memory";
+import type { MemorySearchRecord } from "../server/domain/memory";
 import { candidateDepth, weightedRrf, type RankedCandidate } from "../server/search/rrf";
 
 function candidate(id: string): RankedCandidate {
-  const record: MemoryRecord = {
+  const record: MemorySearchRecord = {
     project: "project",
     namespace: "default",
     key: id,
     revision: 1,
     tags: [],
+    snippet: "",
   };
   return { id, record };
 }
@@ -54,9 +55,9 @@ describe("weighted reciprocal rank fusion", () => {
 
   it("keeps the lexical record for hybrid duplicates without changing fusion scores", () => {
     const lexical = candidate("shared");
-    lexical.record.content = "query-relative lexical snippet";
+    lexical.record.snippet = "query-relative lexical snippet";
     const semantic = candidate("shared");
-    semantic.record.content = "fixed semantic prefix";
+    semantic.record.snippet = "fixed semantic prefix";
 
     const [result] = weightedRrf({
       lexical: [lexical],
@@ -65,7 +66,7 @@ describe("weighted reciprocal rank fusion", () => {
       limit: 1,
     });
 
-    expect(result.record.content).toBe("query-relative lexical snippet");
+    expect(result.record.snippet).toBe("query-relative lexical snippet");
     expect(result.score).toBeCloseTo(1 / 61);
     expect(result.scoreBreakdown).toEqual({
       lexical: 0.5 / 61,

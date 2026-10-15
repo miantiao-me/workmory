@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { MemoryServiceError } from "../server/application/memory-service";
 import {
   listInputSchema,
+  searchInputSchema,
   graphInputSchema,
   historyInputSchema,
   restoreInputSchema,
@@ -97,6 +98,16 @@ describe("MCP memory contracts", () => {
     );
     expect(result.structuredContent).toHaveProperty("record");
     expect(result.content[0]).toMatchObject({ type: "text", text: "Memory 'architecture/runtime' stored." });
+  });
+
+  it("maps search response budgets to the application request", async () => {
+    const service = fakeMemoryService();
+    const handlers = createMemoryToolHandlers(service);
+    for (const budget of [undefined, 2000, 100000]) {
+      const result = await handlers.memory_search(searchInputSchema.parse({ project: "workmory", query: "term", ...(budget === undefined ? {} : { max_response_chars: budget }) }));
+      expect(service.search).toHaveBeenLastCalledWith(expect.objectContaining({ maxResponseChars: budget ?? 16000 }));
+      expect(result.structuredContent).toHaveProperty("result.responseBudget");
+    }
   });
 
   it("maps memory_list filters to application casing", async () => {

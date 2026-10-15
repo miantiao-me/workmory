@@ -73,7 +73,7 @@ export function createMemoryToolHandlers(service: MemoryService) {
     }) }), "Memories listed."),
     memory_search: (input: SearchInput) => toolResult(async () => ({ result: await service.search({
       project: input.project, namespace: input.namespace, query: input.query,
-      semanticWeight: input.semantic_weight, limit: input.limit, filters: input.filters,
+      semanticWeight: input.semantic_weight, limit: input.limit, filters: input.filters, maxResponseChars: input.max_response_chars,
     }) }), "Memory search completed."),
     memory_graph: (input: GraphInput) => toolResult(async () => ({ graph: await service.graph(input.mode === "overview" ? {
       mode: "overview",

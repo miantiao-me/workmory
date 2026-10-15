@@ -30,7 +30,7 @@ export interface MutationResult {
 }
 
 export interface SearchHit {
-  record: MemoryRecord;
+  record: MemorySearchRecord;
   score: number;
   scoreBreakdown?: {
     lexical?: number;
@@ -42,6 +42,7 @@ export interface SearchHit {
 
 export interface SearchResult {
   items: SearchHit[];
+  responseBudget: { maxChars: number; omittedItems: number };
   degraded: boolean;
   effectiveSemanticWeight: number;
   degradationReason?: string;
@@ -62,6 +63,10 @@ export interface MemoryListItem {
   updatedAt?: string;
 }
 
+export interface MemorySearchRecord extends MemoryListItem {
+  snippet: string;
+}
+
 export interface MemoryListResult {
   items: MemoryListItem[];
   nextCursor?: string;
@@ -70,6 +75,7 @@ export interface MemoryListResult {
 export interface SearchMemoryRequest extends MemoryScope {
   query: string;
   semanticWeight: number;
+  maxResponseChars?: number;
   limit: number;
   filters?: { kind?: string; tags?: string[]; status?: string };
 }

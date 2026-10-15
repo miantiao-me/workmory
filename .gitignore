@@ -16,6 +16,7 @@ dist/
 
 # Cache & temp
 .cache/
+.vitest/
 *.tsbuildinfo
 *.log
 coverage/

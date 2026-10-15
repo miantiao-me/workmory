@@ -24,7 +24,7 @@ export function toCandidate(candidate: CandidateRow, request: SearchMemoryReques
       kind: candidate.kind === null ? undefined : String(candidate.kind),
       tags: JSON.parse(String(candidate.tags ?? "[]")) as string[],
       status: String(candidate.status),
-      content: String(candidate.snippet),
+      snippet: String(candidate.snippet),
       updatedAt: new Date(Number(candidate.updatedAt)).toISOString(),
     },
   };
