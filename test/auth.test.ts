@@ -108,50 +108,81 @@ describe("request authentication", () => {
     expect(unusedVerifier.verify).not.toHaveBeenCalled();
   });
 
-  it("counts every credential source, including empty headers, and rejects unsupported headers before root authentication", async () => {
-    for (const name of ["X-API-Key", "Authorization", "Cf-Access-Jwt-Assertion"]) {
-      for (const value of [rootKey, ""]) {
-        await expect(authenticateRequest(request({ [name]: value }), env, verifier, rootKey))
-          .rejects.toMatchObject({ status: 400, code: "AUTH_AMBIGUOUS" });
-      }
-    }
-    for (const name of ["Cookie", "Cf-Access-Client-Id", "Cf-Access-Client-Secret"]) {
-      for (const pathKey of [undefined, rootKey]) {
-        await expect(authenticateRequest(request({ [name]: "", ...(pathKey === undefined ? { "X-API-Key": rootKey } : {}) }), env, verifier, pathKey))
-          .rejects.toMatchObject({ status: 400, code: "AUTH_UNSUPPORTED" });
-      }
-    }
-    await expect(authenticateRequest(request({ "X-API-Key": "", Authorization: "" }), env, verifier))
-      .rejects.toMatchObject({ status: 400, code: "AUTH_AMBIGUOUS" });
-    await expect(authenticateRequest(request({ Authorization: "", "Cf-Access-Jwt-Assertion": "" }), env, verifier))
-      .rejects.toMatchObject({ status: 400, code: "AUTH_AMBIGUOUS" });
-  });
-
-  it("fails closed for Access credentials when Access is not configured", async () => {
+  it("prioritizes a present header key over every other source without using Access", async () => {
     const unusedVerifier: AccessTokenVerifier = { verify: vi.fn(async () => { throw new Error("must not run"); }) };
-    const credentials: HeadersInit[] = [
-      { Authorization: "Bearer token" },
-      { "Cf-Access-Jwt-Assertion": "token" },
+    const jwt = await token();
+    const sources: Record<string, string>[] = [
+      { Authorization: `Bearer ${jwt}` },
+      { "Cf-Access-Jwt-Assertion": jwt },
+      { Cookie: "CF_Authorization=ignored; analytics=value" },
+      { "Cf-Access-Client-Id": "id" },
+      { "Cf-Access-Client-Secret": "secret" },
     ];
-    for (const headers of credentials) {
-      await expect(authenticateRequest(request(headers), rootOnlyEnv, unusedVerifier)).rejects.toMatchObject({
-        code: "AUTH_CONFIG_INVALID",
-        status: 503,
-      });
+    const expected = await authenticateRequest(request({ "X-API-Key": rootKey }), env, unusedVerifier);
+    for (const extra of [{}, ...sources, Object.assign({}, ...sources)]) {
+      for (const pathKey of [undefined, rootKey, "wrong", ""]) {
+        expect(await authenticateRequest(request({ ...extra, "X-API-Key": rootKey }), env, unusedVerifier, pathKey)).toEqual(expected);
+        for (const key of ["wrong", ""]) {
+          await expect(authenticateRequest(request({ ...extra, "X-API-Key": key }), env, unusedVerifier, pathKey))
+            .rejects.toMatchObject({ status: 401, code: "AUTH_INVALID" });
+        }
+      }
     }
     expect(unusedVerifier.verify).not.toHaveBeenCalled();
   });
 
-  it("rejects ambiguity, missing credentials, unsupported credentials, and never falls back", async () => {
-    await expect(
-      authenticateRequest(request({ Authorization: "Bearer invalid", "X-API-Key": rootKey }), env, verifier),
-    ).rejects.toMatchObject({ code: "AUTH_AMBIGUOUS", status: 400 });
-    await expect(authenticateRequest(request({}), env, verifier)).rejects.toMatchObject({ code: "AUTH_REQUIRED" });
-    await expect(authenticateRequest(request({ Cookie: "CF_Authorization=x" }), env, verifier)).rejects.toMatchObject({ code: "AUTH_UNSUPPORTED" });
-    await expect(authenticateRequest(request({ "CF-Access-Client-Id": "id" }), env, verifier)).rejects.toMatchObject({ code: "AUTH_UNSUPPORTED" });
-    await expect(
-      authenticateRequest(request({ Authorization: "Basic value", "X-API-Key": "wrong" }), env, verifier),
-    ).rejects.toMatchObject({ code: "AUTH_AMBIGUOUS" });
+  it("keeps source conflicts and service tokens rejected when there is no header key", async () => {
+    for (const name of ["Authorization", "Cf-Access-Jwt-Assertion"]) {
+      for (const value of ["token", ""]) {
+        await expect(authenticateRequest(request({ [name]: value, Cookie: "analytics=value" }), env, verifier, rootKey))
+          .rejects.toMatchObject({ status: 400, code: "AUTH_AMBIGUOUS" });
+      }
+    }
+    await expect(authenticateRequest(request({ Authorization: "", "Cf-Access-Jwt-Assertion": "" }), env, verifier))
+      .rejects.toMatchObject({ status: 400, code: "AUTH_AMBIGUOUS" });
+    for (const name of ["Cf-Access-Client-Id", "Cf-Access-Client-Secret"]) {
+      for (const pathKey of [undefined, rootKey]) {
+        await expect(authenticateRequest(request({ [name]: "" }), env, verifier, pathKey))
+          .rejects.toMatchObject({ status: 400, code: "AUTH_UNSUPPORTED" });
+      }
+    }
+  });
+
+  it("treats cookies as accompanying data and never authenticates their contents", async () => {
+    const jwt = await token();
+    const expected = await authenticateRequest(request({ Authorization: `Bearer ${jwt}` }), env, verifier);
+    for (const cookie of ["analytics=value", `CF_Authorization=${jwt}`, ""]) {
+      for (const headers of [{ Authorization: `Bearer ${jwt}` }, { "Cf-Access-Jwt-Assertion": jwt }] as Record<string, string>[]) {
+        expect(await authenticateRequest(request({ ...headers, Cookie: cookie }), env, verifier)).toEqual(expected);
+      }
+      expect(await authenticateRequest(request({ Cookie: cookie }), env, verifier, rootKey))
+        .toEqual(await authenticateRequest(request({ "X-API-Key": rootKey }), env, verifier));
+      await expect(authenticateRequest(request({ Cookie: cookie }), env, verifier))
+        .rejects.toMatchObject({ status: 400, code: "AUTH_UNSUPPORTED" });
+      for (const headers of [{ Authorization: "Bearer invalid" }, { Authorization: "" }, { "Cf-Access-Jwt-Assertion": "invalid" }, { "Cf-Access-Jwt-Assertion": "" }] as Record<string, string>[]) {
+        await expect(authenticateRequest(request({ ...headers, Cookie: cookie }), env, verifier))
+          .rejects.toMatchObject({ status: 401, code: "AUTH_INVALID" });
+      }
+    }
+  });
+
+  it("fails closed for Access credentials when Access is absent or partially configured", async () => {
+    const unusedVerifier: AccessTokenVerifier = { verify: vi.fn(async () => { throw new Error("must not run"); }) };
+    for (const config of [rootOnlyEnv, { ...rootOnlyEnv, ACCESS_TEAM_DOMAIN: issuer }, { ...rootOnlyEnv, ACCESS_AUD: audience }]) {
+      for (const headers of [{ Authorization: "Bearer token" }, { "Cf-Access-Jwt-Assertion": "token" }] as Record<string, string>[]) {
+        for (const extra of [{}, { Cookie: "CF_Authorization=token" }] as Record<string, string>[]) {
+          await expect(authenticateRequest(request({ ...headers, ...extra }), config, unusedVerifier))
+            .rejects.toMatchObject({ code: "AUTH_CONFIG_INVALID", status: 503 });
+        }
+      }
+    }
+    expect(unusedVerifier.verify).not.toHaveBeenCalled();
+  });
+
+  it("rejects missing credentials and malformed authorization", async () => {
+    await expect(authenticateRequest(request({}), env, verifier)).rejects.toMatchObject({ code: "AUTH_REQUIRED", status: 401 });
+    await expect(authenticateRequest(request({ Authorization: "Basic value" }), env, verifier))
+      .rejects.toMatchObject({ code: "AUTH_INVALID", status: 401 });
   });
 
   it("derives stable and isolated owners from issuer, audience, and subject", async () => {

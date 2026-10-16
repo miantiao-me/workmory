@@ -34,12 +34,16 @@ Add Workmory to your agent's MCP client configuration:
 
 ### Authentication
 
-Protected requests accept one credential source per request:
+Protected requests support these credentials:
 
 - **Cloudflare Access JWT**: Pass via `Authorization: Bearer <jwt>` or `Cf-Access-Jwt-Assertion: <jwt>`. Each Access subject gets an isolated owner domain.
 - **Root API Key**: Pass via `X-API-Key: <key>`. Maps to a separate `root` domain, ideal for automated pipelines and maintenance tasks.
 
-For MCP clients without custom headers, use `https://memory.example.com/mcp/<url-encoded-root-key>`. Encode the actual `ROOT_API_KEY` with `encodeURIComponent`; this URL requires no additional authentication headers. Do not combine the path key with another credential source.
+For MCP clients without custom headers, use `https://memory.example.com/mcp/<url-encoded-root-key>`. Encode the actual `ROOT_API_KEY` with `encodeURIComponent`; this URL requires no additional authentication headers.
+
+A present `X-API-Key` header takes priority over all other sources. An empty or incorrect key fails authentication without falling back to JWT or the path key. Without that header, provide exactly one path key, Bearer JWT, or assertion; Access service-token headers are unsupported. Cookies may accompany a credential, but are never read as credentials, including `CF_Authorization`.
+
+Access API calls require a valid application JWT. The dashboard currently supports root-key login only. Its API client omits browser credentials when a key is set and uses same-origin credentials without a key. If Cloudflare Access protects the API paths at the edge, its policy must allow requests with omitted browser credentials to reach the Worker; application code cannot bypass that edge policy.
 
 ### Discover the memory skill
 

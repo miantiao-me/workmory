@@ -112,7 +112,7 @@ export function createWorkmoryApi(options: WorkmoryApiOptions) {
     const headers = new Headers(init.headers);
     const key = options.getApiKey();
     if (key) headers.set("X-API-Key", key);
-    const response = await requestFetch(path, { ...init, headers });
+    const response = await requestFetch(path, { ...init, headers, credentials: key ? "omit" : "same-origin" });
     if (!response.ok) throw await responseError(response);
     return response;
   }

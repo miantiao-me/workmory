@@ -117,12 +117,12 @@ describe("modern per-request MCP HTTP", () => {
     } finally {
       log.mockRestore();
     }
-    for (const name of ["X-API-Key", "Authorization", "Cf-Access-Jwt-Assertion", "Cookie", "Cf-Access-Client-Id", "Cf-Access-Client-Secret"]) {
+    for (const name of ["Authorization", "Cf-Access-Jwt-Assertion", "Cf-Access-Client-Id", "Cf-Access-Client-Secret"]) {
       const request = await pathRequest(modernMcpRequest(25, "tools/list"), `/mcp/${pathRootKey}`);
       request.headers.set(name, "");
       const response = await handleMcpRequest(request, runtime());
       expect(response.status).toBe(400);
-      expect(await response.json()).toMatchObject({ error: { code: ["Cookie", "Cf-Access-Client-Id", "Cf-Access-Client-Secret"].includes(name) ? "AUTH_UNSUPPORTED" : "AUTH_AMBIGUOUS" } });
+      expect(await response.json()).toMatchObject({ error: { code: ["Cf-Access-Client-Id", "Cf-Access-Client-Secret"].includes(name) ? "AUTH_UNSUPPORTED" : "AUTH_AMBIGUOUS" } });
     }
     const query = await handleMcpRequest(await pathRequest(modernMcpRequest(26, "tools/list"), `/mcp/?api-key=${pathRootKey}`), runtime());
     expect(query.status).toBe(401);
@@ -130,6 +130,27 @@ describe("modern per-request MCP HTTP", () => {
     const trailing = new Request("https://api.example.com/mcp/", modernMcpRequest(27, "tools/list"));
     expect((await handleMcpRequest(trailing, runtime())).status).toBe(200);
   });
+  it("prioritizes header keys over decoded paths while retaining malformed-path rejection", async () => {
+    for (const path of ["/mcp/wrong%2Fkey", "/mcp/%ZZ"]) {
+      const request = await pathRequest(modernMcpRequest(28, "tools/list"), path);
+      request.headers.set("X-API-Key", pathRootKey);
+      request.headers.set("Cookie", "CF_Authorization=ignored");
+      const response = await handleMcpRequest(request, runtime());
+      expect(response.status).toBe(path.includes("%ZZ") ? 401 : 200);
+      if (response.status === 401) expect(await response.json()).toMatchObject({ error: { code: "AUTH_INVALID" } });
+    }
+    const request = await pathRequest(modernMcpRequest(29, "tools/list"), `/mcp/${pathRootKey}`);
+    request.headers.set("Cookie", "analytics=value");
+    expect((await handleMcpRequest(request, runtime())).status).toBe(200);
+    for (const key of ["wrong", ""]) {
+      const request = await pathRequest(modernMcpRequest(30, "tools/list"), `/mcp/${pathRootKey}`);
+      request.headers.set("X-API-Key", key);
+      const response = await handleMcpRequest(request, runtime());
+      expect(response.status).toBe(401);
+      expect(await response.json()).toMatchObject({ error: { code: "AUTH_INVALID" } });
+    }
+  });
+
   it("handles discover, tools/list, and tools/call on independent POST requests", async () => {
     const initialized = await handleMcpRequest(modernMcpRequest(1, "server/discover"), runtime());
     expect(initialized.status).toBe(200);
@@ -235,7 +256,7 @@ describe("modern per-request MCP HTTP", () => {
       new Request("http://arbitrary.example/mcp", { method: "POST" }),
       new Request("http://arbitrary.example/mcp", {
         method: "POST",
-        headers: { Authorization: "Bearer token", "X-API-Key": "also-present" },
+        headers: { Authorization: "Bearer token", "Cf-Access-Jwt-Assertion": "also-present" },
       }),
       new Request("http://arbitrary.example/mcp", { method: "POST", headers: { Cookie: "CF_Authorization=token" } }),
     ];

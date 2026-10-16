@@ -3,7 +3,7 @@ import { ApiError, createWorkmoryApi } from "../web/lib/api/client";
 
 describe("browser API client", () => {
   it("injects the current key and sends the modern MCP tools/call contract", async () => {
-    let key = "first-key";
+    let key: string | undefined = "first-key";
     const fetch = vi.fn(async (_path: string | URL | Request, init?: RequestInit) => {
       const request = JSON.parse(String(init?.body)) as { id: number };
       return new Response(JSON.stringify({
@@ -18,6 +18,16 @@ describe("browser API client", () => {
     key = "second-key";
     await api.profileGet({ include_sensitive: false, include_raw: false });
 
+    key = undefined;
+    await api.memoryGetLast({ project: "workmory", namespace: "default" });
+    key = "";
+    await api.profileGet({ include_sensitive: false, include_raw: false });
+    key = "restored-key";
+    await api.profileGet({ include_sensitive: false, include_raw: false });
+    expect(fetch.mock.calls.map((call) => call[1]?.credentials)).toEqual(["omit", "omit", "same-origin", "same-origin", "omit"]);
+    expect(new Headers(fetch.mock.calls[2][1]?.headers).has("X-API-Key")).toBe(false);
+    expect(new Headers(fetch.mock.calls[3][1]?.headers).has("X-API-Key")).toBe(false);
+    expect(new Headers(fetch.mock.calls[4][1]?.headers).get("X-API-Key")).toBe("restored-key");
     const first = fetch.mock.calls[0];
     const second = fetch.mock.calls[1];
     expect(first[0]).toBe("/mcp");
@@ -29,6 +39,25 @@ describe("browser API client", () => {
       method: "tools/call",
       params: { name: "memory_get_last", arguments: { project: "workmory" } },
     });
+  });
+
+  it.each(["key", "", undefined])("sets credentials consistently across HTTP APIs for key %j", async (key) => {
+    const fetch = vi.fn(async (_path: string | URL | Request, init?: RequestInit) =>
+      init?.method === "DELETE" ? new Response(null, { status: 204 }) : new Response("{}", { headers: { "Content-Type": "application/json" } }));
+    const api = createWorkmoryApi({ getApiKey: () => key, fetch: fetch as typeof globalThis.fetch });
+    await api.maintenanceStatus();
+    await api.maintenanceProcess();
+    await api.maintenanceReindex();
+    await api.listProjects();
+    await api.uploadAttachment({ project: "project", file: new Blob(["body"]), filename: "note.txt", idempotencyKey: "upload-1" });
+    await api.getAttachment("project", "attachment");
+    await api.downloadAttachment("project", "attachment", "original");
+    await api.deleteAttachment("project", "attachment");
+    expect(fetch).toHaveBeenCalledTimes(8);
+    for (const [, init] of fetch.mock.calls) {
+      expect(init?.credentials).toBe(key ? "omit" : "same-origin");
+      expect(new Headers(init?.headers).get("X-API-Key")).toBe(key || null);
+    }
   });
 
   it("turns tool errors into safe display errors", async () => {

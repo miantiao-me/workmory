@@ -34,12 +34,16 @@ Workmory 的 MCP 服务端点为 `POST /mcp`（基于 Streamable HTTP，首选 M
 
 ### 认证方式
 
-服务支持两种凭据认证（每个请求仅能携带一种凭据）：
+服务支持两种凭据认证：
 
 - **Cloudflare Access JWT**：通过 `Authorization: Bearer <jwt>` 或 `Cf-Access-Jwt-Assertion: <jwt>` 传递。每个 Access 用户主体拥有相互隔离的独立数据空间。
 - **Root API Key**：通过 `X-API-Key: <key>` 传递。对应独立的 `root` 数据域，适用于自动化运维或系统级调用。
 
-不支持自定义请求头的 MCP 客户端可使用 `https://memory.example.com/mcp/<url-encoded-root-key>`。请使用 `encodeURIComponent` 编码实际的 `ROOT_API_KEY`，此 URL 无需额外认证请求头。路径密钥不可与其他凭据来源混用。
+不支持自定义请求头的 MCP 客户端可使用 `https://memory.example.com/mcp/<url-encoded-root-key>`。请使用 `encodeURIComponent` 编码实际的 `ROOT_API_KEY`，此 URL 无需额外认证请求头。
+
+只要存在 `X-API-Key` 请求头，就优先且只校验该密钥。空密钥或错误密钥会认证失败，不回退到 JWT 或路径密钥。没有该请求头时，路径密钥、Bearer JWT 和 assertion 只能提供一种。Access service-token 请求头不受支持。Cookie 可以随请求附带，但不作为凭据读取，`CF_Authorization` 也不例外。
+
+Access API 调用需要有效的应用 JWT。仪表盘目前仅支持 root 密钥登录。网页 API 客户端有密钥时省略浏览器凭据，无密钥时使用同源凭据。若 API 路径受 Cloudflare Access 边缘保护，需通过 Access 策略允许省略浏览器凭据的请求到达 Worker；应用代码无法绕过边缘策略。
 
 ### 发现经验记忆 Skill
 

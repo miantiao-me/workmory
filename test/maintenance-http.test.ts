@@ -31,6 +31,18 @@ describe("maintenance route", () => {
     expect(access.status).toBe(403);
   });
 
+  it("accepts the root key with browser and Access cookies", async () => {
+    const maintenance = vi.fn(async () => STATUS_RESULT);
+    const response = await handleMaintenanceRequest(new Request("https://api.example.com/v1/maintenance", {
+      method: "POST",
+      headers: headers({ Cookie: "analytics=value; CF_Authorization=ignored", "Cf-Access-Jwt-Assertion": "ignored" }),
+      body: JSON.stringify({ action: "status" }),
+    }), runtime({ maintenance }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(STATUS_RESULT);
+    expect(maintenance).toHaveBeenCalledWith("status");
+  });
+
   it("dispatches status and preserves its aggregate-only contract", async () => {
     const maintenance = vi.fn(async () => STATUS_RESULT);
     const response = await handleMaintenanceRequest(

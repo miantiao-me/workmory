@@ -15,17 +15,22 @@ export async function authenticateRequest(
   verifier?: AccessTokenVerifier,
   pathApiKey?: string,
 ): Promise<ActorContext> {
-  if (request.headers.has("cf-access-client-id") || request.headers.has("cf-access-client-secret") || request.headers.has("cookie")) {
-    throw new AuthenticationError(400, "AUTH_UNSUPPORTED", "Unsupported authentication credential");
-  }
   const headerKey = request.headers.get("x-api-key");
   const authorization = request.headers.get("authorization");
   const assertion = request.headers.get("cf-access-jwt-assertion");
-  const present = [pathApiKey, headerKey, authorization, assertion].filter((value) => value !== null && value !== undefined).length;
-  if (present > 1) throw new AuthenticationError(400, "AUTH_AMBIGUOUS", "Multiple authentication credentials were provided");
-  if (present === 0) throw new AuthenticationError(401, "AUTH_REQUIRED", "Authentication is required");
+  if (headerKey === null) {
+    if (request.headers.has("cf-access-client-id") || request.headers.has("cf-access-client-secret")) {
+      throw new AuthenticationError(400, "AUTH_UNSUPPORTED", "Unsupported authentication credential");
+    }
+    const present = [pathApiKey, authorization, assertion].filter((value) => value !== null && value !== undefined).length;
+    if (present > 1) throw new AuthenticationError(400, "AUTH_AMBIGUOUS", "Multiple authentication credentials were provided");
+    if (present === 0) {
+      if (request.headers.has("cookie")) throw new AuthenticationError(400, "AUTH_UNSUPPORTED", "Unsupported authentication credential");
+      throw new AuthenticationError(401, "AUTH_REQUIRED", "Authentication is required");
+    }
+  }
 
-  const rootKey = pathApiKey ?? headerKey;
+  const rootKey = headerKey ?? pathApiKey ?? null;
   if (rootKey !== null) {
     if (utf8Length(env.ROOT_API_KEY) < 32) throw new AuthenticationError(503, "AUTH_CONFIG_INVALID", "Authentication is unavailable");
     if (!(await constantTimeDigestEqual(rootKey, env.ROOT_API_KEY))) throw new AuthenticationError(401, "AUTH_INVALID", "Authentication failed");

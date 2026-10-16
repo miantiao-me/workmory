@@ -36,11 +36,29 @@ function request(headers: HeadersInit): Request {
 
 describe("default Access verifier lifecycle", () => {
   it("constructs lazily for configured Access and reuses it across requests", async () => {
-    await authenticateRequest(request({ "X-API-Key": rootKey }), rootOnlyEnv);
+    const extras: Record<string, string>[] = [
+      {},
+      { Authorization: "Bearer token" },
+      { "Cf-Access-Jwt-Assertion": "token" },
+      { Cookie: "CF_Authorization=token" },
+      { "Cf-Access-Client-Id": "id" },
+      { "Cf-Access-Client-Secret": "secret" },
+      { Authorization: "", "Cf-Access-Jwt-Assertion": "", Cookie: "", "Cf-Access-Client-Id": "", "Cf-Access-Client-Secret": "" },
+    ];
+    for (const extra of extras) {
+      for (const pathKey of [undefined, "wrong-path"]) {
+        await authenticateRequest(request({ ...extra, "X-API-Key": rootKey }), rootOnlyEnv, undefined, pathKey);
+        for (const key of ["", "wrong"]) {
+          await expect(authenticateRequest(request({ ...extra, "X-API-Key": key }), accessEnv, undefined, pathKey))
+            .rejects.toMatchObject({ code: "AUTH_INVALID" });
+        }
+      }
+    }
     await expect(
       authenticateRequest(request({ Authorization: "Bearer token" }), rootOnlyEnv),
     ).rejects.toMatchObject({ code: "AUTH_CONFIG_INVALID" });
     expect(verifierMocks.construct).not.toHaveBeenCalled();
+    expect(verifierMocks.verify).not.toHaveBeenCalled();
 
     const first = await authenticateRequest(request({ Authorization: "Bearer first" }), accessEnv);
     const second = await authenticateRequest(request({ "Cf-Access-Jwt-Assertion": "second" }), accessEnv);
