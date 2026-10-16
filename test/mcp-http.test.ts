@@ -182,6 +182,30 @@ describe("modern per-request MCP HTTP", () => {
     expect(listed.headers.has("mcp-session-id")).toBe(false);
   });
 
+  it.each(["2026-07-28", "2025-11-25"])("returns JSON text data over %s HTTP", async (version) => {
+    const memory = fakeMemoryService();
+    const record = {
+      project: "workmory", namespace: "default", key: "system/last_memory",
+      revision: 1, tags: [], content: '继续工作\n读取 "检查点"',
+    };
+    memory.getLast = vi.fn(async () => record);
+    const params = { name: "memory_get_last", arguments: { project: "workmory" } };
+    const request = version === "2026-07-28"
+      ? modernMcpRequest(31, "tools/call", params, "memory_get_last")
+      : legacyMcpRequest(31, "tools/call", params);
+    const response = await handleMcpRequest(request, runtime({ memory }));
+    expect(response.status).toBe(200);
+    const { result } = await legacyResponseJson(response) as {
+      result: { content: { type: string; text: string }[]; structuredContent: unknown };
+    };
+    expect(result.content).toEqual([
+      { type: "text", text: "Project checkpoint retrieved." },
+      { type: "text", text: JSON.stringify({ record }) },
+    ]);
+    expect(JSON.parse(result.content[1].text)).toEqual(result.structuredContent);
+    expect(result.structuredContent).toEqual({ record });
+  });
+
   it("accepts modern and legacy notifications and legacy JSON-RPC responses without sessions", async () => {
     await expectAcceptedWithoutBody(await handleMcpRequest(mcpMessageRequest({
       jsonrpc: "2.0",

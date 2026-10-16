@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import type { CallToolResult } from "@modelcontextprotocol/server";
 import { MemoryServiceError } from "../server/application/memory-service";
 import {
   listInputSchema,
@@ -20,6 +21,16 @@ import {
 } from "../server/mcp/server";
 import { fakeMemoryService, fakeProfileService } from "./fixtures/http";
 
+function expectJsonContent(result: CallToolResult): unknown {
+  expect(result.content).toHaveLength(2);
+  expect(result.content[0]).toMatchObject({ type: "text", text: expect.any(String) });
+  const block = result.content[1];
+  if (block.type !== "text") throw new Error("Expected JSON text content");
+  const data: unknown = JSON.parse(block.text);
+  expect(data).toEqual(JSON.parse(JSON.stringify(result.structuredContent)));
+  return data;
+}
+
 describe("MCP memory contracts", () => {
   it("keeps the public memory tool names and constructs an MCP v2 server", () => {
     expect(MEMORY_TOOL_NAMES).toEqual([
@@ -38,6 +49,46 @@ describe("MCP memory contracts", () => {
     expect(PROFILE_TOOL_NAMES).toEqual(["profile_get", "profile_update", "profile_delete"]);
     expect(TOOL_NAMES).toHaveLength(14);
     expect(createWorkmoryMcpServer({ memory: fakeMemoryService(), profile: fakeProfileService() })).toBeDefined();
+  });
+
+  it.each(TOOL_NAMES)("includes JSON data in %s text content", async (name) => {
+    const service = fakeMemoryService();
+    const profile = fakeProfileService();
+    const scope = { project: "workmory", namespace: "default", key: "docs/item" };
+    const content = '中文检查点\n包含 "引号" 和 \\ 路径 😀';
+    const record = { ...scope, key: "system/last_memory", revision: 1, tags: [], content, kind: undefined };
+    service.getLast = vi.fn(async () => record);
+    profile.get = vi.fn(async () => ({
+      effective: { preferences: { language: {
+        state: "set" as const, value: content, origin: "global" as const,
+        sensitivity: "normal" as const,
+        provenance: { kind: "user_explicit" as const, recorded_at: "2026-01-01T00:00:00Z" },
+      } } },
+      staleFields: [], maskedFields: [],
+    }));
+    const memory = createMemoryToolHandlers(service);
+    const profiles = createProfileToolHandlers(profile);
+    const calls = {
+      memory_store: () => memory.memory_store({ ...scope, content }),
+      memory_retrieve: () => memory.memory_retrieve(scope),
+      memory_history: () => memory.memory_history({ ...scope, limit: 20 }),
+      memory_retrieve_revision: () => memory.memory_retrieve_revision({ ...scope, revision: 1 }),
+      memory_restore: () => memory.memory_restore({ ...scope, source_revision: 1, operation_id: "restore-operation-001" }),
+      memory_list: () => memory.memory_list({ ...scope, limit: 20 }),
+      memory_search: () => memory.memory_search(searchInputSchema.parse({ project: scope.project, query: "term" })),
+      memory_graph: () => memory.memory_graph(graphInputSchema.parse({ project: scope.project, mode: "overview" })),
+      memory_delete: () => memory.memory_delete(scope),
+      memory_get_last: () => memory.memory_get_last(scope),
+      memory_update_last: () => memory.memory_update_last({ ...scope, content }),
+      profile_get: () => profiles.profile_get(profileGetInputSchema.parse({})),
+      profile_update: () => profiles.profile_update(profileUpdateInputSchema.parse({ operations: [{ op: "remove", section: "preferences", field: "theme" }] })),
+      profile_delete: () => profiles.profile_delete({}),
+    };
+    const result = await calls[name]();
+    expect(result.isError).not.toBe(true);
+    const data = expectJsonContent(result);
+    if (name === "memory_get_last") expect(data).toMatchObject({ record: { content } });
+    if (name === "profile_get") expect(data).toMatchObject({ profile: { effective: { preferences: { language: { value: content } } } } });
   });
 
   it("maps revision history and restore requests", async () => {
@@ -164,11 +215,11 @@ describe("MCP memory contracts", () => {
     const checkpoint = await handlers.memory_get_last({ project: "workmory", namespace: "default" });
 
     expect(retrieved).toMatchObject({
-      content: [{ type: "text", text: "Memory 'missing/item' not found." }],
+      content: [{ type: "text", text: "Memory 'missing/item' not found." }, { type: "text", text: '{"record":null}' }],
       structuredContent: { record: null },
     });
     expect(checkpoint).toMatchObject({
-      content: [{ type: "text", text: "No project checkpoint found." }],
+      content: [{ type: "text", text: "No project checkpoint found." }, { type: "text", text: '{"record":null}' }],
       structuredContent: { record: null },
     });
   });
@@ -176,16 +227,17 @@ describe("MCP memory contracts", () => {
   it("maps service failures to stable MCP tool errors", async () => {
     const service = fakeMemoryService();
     service.delete = vi.fn(async () => {
-      throw new MemoryServiceError("REVISION_CONFLICT", "Expected revision does not match");
+      throw new MemoryServiceError("REVISION_CONFLICT", '预期版本不匹配\n"revision"\\2');
     });
     const result = await createMemoryToolHandlers(service).memory_delete({
       project: "workmory",
       namespace: "default",
       key: "architecture/runtime",
     });
+    expectJsonContent(result);
     expect(result.isError).toBe(true);
     expect(result.structuredContent).toEqual({
-      error: { code: "REVISION_CONFLICT", message: "Expected revision does not match" },
+      error: { code: "REVISION_CONFLICT", message: '预期版本不匹配\n"revision"\\2' },
     });
     expect(result.content[0]).toMatchObject({ type: "text", text: expect.stringMatching(/^REVISION_CONFLICT:/) });
   });
@@ -198,6 +250,7 @@ describe("MCP memory contracts", () => {
       isError: true,
       structuredContent: { error: { code: "INTERNAL_ERROR", message: "The tool operation failed." } },
     });
+    expectJsonContent(result);
     expect(JSON.stringify(result)).not.toContain("private failure");
   });
 
